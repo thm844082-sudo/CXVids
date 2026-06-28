@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CXVid</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0A0A0F;
+    --surface:   #12121A;
+    --surface2:  #1C1C2A;
+    --border:    #2A2A3E;
+    --cyan:      #00D4FF;
+    --cyan-dim:  #00A8CC;
+    --purple:    #7B5EA7;
+    --text:      #F0F0FF;
+    --muted:     #6B6B8A;
+    --error:     #FF4D6D;
+    --success:   #00E5A0;
+    --radius:    12px;
+    --radius-sm: 8px;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; top: 24px; right: 24px; z-index: 9999;
+    padding: 12px 20px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 500; opacity: 0;
+    transition: opacity .3s, transform .3s;
+    transform: translateY(-8px);
+    pointer-events: none;
+    max-width: 320px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.success { background: var(--success); color: #0A0A0F; }
+  #toast.error   { background: var(--error);   color: #fff; }
+  #toast.info    { background: var(--cyan);     color: #0A0A0F; }
+
+  /* ── MODAL OVERLAY ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,.75); backdrop-filter: blur(8px);
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    width: min(460px, 95vw);
+    position: relative;
+    animation: slideUp .25s ease;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    background: var(--surface2); border: none; cursor: pointer;
+    color: var(--muted); width: 32px; height: 32px;
+    border-radius: 50%; font-size: 18px; display: flex;
+    align-items: center; justify-content: center; transition: color .2s;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .modal h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 24px; font-weight: 700; margin-bottom: 6px;
+  }
+  .modal .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+
+  /* ── FORM ── */
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
+  .form-group input, .form-group textarea, .form-group select {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); padding: 12px 14px; font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    transition: border-color .2s;
+    outline: none;
+  }
+  .form-group input:focus, .form-group textarea:focus {
+    border-color: var(--cyan);
+  }
+  .form-group input::placeholder { color: var(--muted); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 8px; padding: 12px 20px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    border: none; transition: all .2s; font-family: 'Inter', sans-serif;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--cyan); color: #0A0A0F; width: 100%;
+    padding: 14px;
+  }
+  .btn-primary:hover { background: var(--cyan-dim); transform: translateY(-1px); }
+  .btn-ghost {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--cyan); }
+  .btn-danger { background: var(--error); color: #fff; }
+  .btn-danger:hover { opacity: .85; }
+
+  .modal-switch {
+    text-align: center; margin-top: 20px; font-size: 13px; color: var(--muted);
+  }
+  .modal-switch a { color: var(--cyan); cursor: pointer; text-decoration: none; }
+  .modal-switch a:hover { text-decoration: underline; }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,15,.9); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    height: 64px; display: flex; align-items: center;
+    padding: 0 24px; gap: 16px;
+  }
+
+  .logo {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px; font-weight: 700;
+    color: var(--text); text-decoration: none;
+    display: flex; align-items: center; gap: 2px;
+  }
+  .logo .cx {
+    color: var(--cyan);
+    text-shadow: 0 0 20px rgba(0,212,255,.5);
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { text-shadow: 0 0 20px rgba(0,212,255,.5); }
+    50%       { text-shadow: 0 0 35px rgba(0,212,255,.9), 0 0 60px rgba(0,212,255,.3); }
+  }
+
+  .search-bar {
+    flex: 1; max-width: 520px; position: relative;
+  }
+  .search-bar input {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 24px;
+    color: var(--text); padding: 10px 20px 10px 42px;
+    font-size: 14px; outline: none; transition: border-color .2s;
+    font-family: 'Inter', sans-serif;
+  }
+  .search-bar input:focus { border-color: var(--cyan); }
+  .search-bar input::placeholder { color: var(--muted); }
+  .search-bar .icon {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); pointer-events: none;
+  }
+
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+  .upload-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 16px; border-radius: var(--radius-sm);
+    cursor: pointer; font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px; transition: all .2s;
+    font-family: 'Inter', sans-serif;
+  }
+  .upload-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .upload-btn.hidden { display: none; }
+
+  .avatar-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    border: none; cursor: pointer; font-weight: 700; font-size: 14px;
+    color: #0A0A0F; position: relative; display: none;
+  }
+  .avatar-btn.visible { display: flex; align-items: center; justify-content: center; }
+
+  .auth-btns { display: flex; gap: 8px; }
+  .auth-btns .btn { padding: 8px 16px; font-size: 13px; }
+
+  /* ── LAYOUT ── */
+  .app-body {
+    display: flex; min-height: calc(100vh - 64px);
+  }
+
+  /* ── SIDEBAR ── */
+  aside {
+    width: 220px; flex-shrink: 0;
+    padding: 20px 12px;
+    border-right: 1px solid var(--border);
+    position: sticky; top: 64px;
+    height: calc(100vh - 64px); overflow-y: auto;
+  }
+
+  .nav-section { margin-bottom: 28px; }
+  .nav-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--muted); padding: 0 8px;
+    margin-bottom: 8px;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: var(--radius-sm);
+    cursor: pointer; color: var(--muted); font-size: 14px; font-weight: 500;
+    transition: all .2s; user-select: none;
+  }
+  .nav-item:hover, .nav-item.active {
+    background: var(--surface2); color: var(--text);
+  }
+  .nav-item.active { color: var(--cyan); }
+  .nav-item svg { flex-shrink: 0; }
+
+  /* ── MAIN ── */
+  main { flex: 1; padding: 28px 28px; overflow: hidden; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── FEED PAGE ── */
+  .feed-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .feed-header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px; font-weight: 700;
+  }
+
+  .filter-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all .2s; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--muted);
+  }
+  .chip:hover { color: var(--text); border-color: var(--muted); }
+  .chip.active { background: var(--cyan); color: #0A0A0F; border-color: var(--cyan); }
+
+  /* ── VIDEO GRID ── */
+  .video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+
+  .video-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .2s, border-color .2s, box-shadow .2s;
+  }
+  .video-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--cyan);
+    box-shadow: 0 8px 32px rgba(0,212,255,.12);
+  }
+
+  .thumbnail {
+    width: 100%; aspect-ratio: 16/9;
+    background: var(--surface2);
+    position: relative; overflow: hidden;
+  }
+  .thumbnail img, .thumbnail video {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .thumbnail .play-icon {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.3);
+    opacity: 0; transition: opacity .2s;
+  }
+  .video-card:hover .play-icon { opacity: 1; }
+  .play-icon svg { width: 48px; height: 48px; color: #fff; filter: drop-shadow(0 2px 8px rgba(0,0,0,.5)); }
+
+  .media-type-badge {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,.7); color: var(--cyan);
+    font-size: 10px; font-weight: 700; padding: 3px 7px;
+    border-radius: 4px; text-transform: uppercase; letter-spacing: .05em;
+  }
+
+  .card-info { padding: 14px; }
+  .card-info h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px; font-weight: 600; margin-bottom: 6px;
+    line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-meta {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--muted);
+  }
+  .card-meta .avatar-sm {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #0A0A0F; flex-shrink: 0;
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 80px 20px; text-align: center;
+  }
+  .empty-state .icon { font-size: 64px; margin-bottom: 16px; opacity: .4; }
+  .empty-state h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px; margin-bottom: 8px;
+  }
+  .empty-state p { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+  /* ── UPLOAD MODAL ── */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--cyan);
+    background: rgba(0,212,255,.04);
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-zone .dz-icon { font-size: 40px; margin-bottom: 12px; }
+  .drop-zone p { color: var(--muted); font-size: 13px; }
+  .drop-zone strong { color: var(--cyan); }
+  .drop-zone .preview {
+    margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 13px; color: var(--success);
+  }
+  .preview-thumb {
+    width: 48px; height: 48px; border-radius: 6px; object-fit: cover;
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap {
+    background: var(--surface2); border-radius: 4px;
+    height: 6px; overflow: hidden; margin-top: 12px; display: none;
+  }
+  .progress-bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    transition: width .3s; border-radius: 4px;
+  }
+  .progress-label {
+    font-size: 12px; color: var(--muted); margin-top: 6px; text-align: center;
+    display: none;
+  }
+
+  /* ── GITHUB CONFIG PANEL ── */
+  .gh-panel {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 16px; margin-bottom: 20px;
+  }
+  .gh-panel summary {
+    cursor: pointer; font-size: 13px; font-weight: 600; color: var(--cyan);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .gh-panel summary::marker { content: ''; }
+  .gh-panel[open] summary::after { content: ' ▲'; }
+  .gh-panel:not([open]) summary::after { content: ' ▼'; }
+  .gh-fields { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* ── PROFILE PAGE ── */
+  .profile-header {
+    display: flex; gap: 24px; align-items: flex-start;
+    margin-bottom: 32px; padding: 24px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .profile-avatar {
+    width: 80px; height: 80px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 700; color: #0A0A0F;
+  }
+  .profile-info h2 {
+    font-family: 'Space Grotesk', sans-serif; font-size: 22px; margin-bottom: 4px;
+  }
+  .profile-info p { color: var(--muted); font-size: 13px; }
+  .profile-stats {
+    display: flex; gap: 24px; margin-top: 16px;
+  }
+  .stat { text-align: center; }
+  .stat .num { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; }
+  .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+  /* ── MEDIA VIEWER ── */
+  .viewer-modal .modal {
+    width: min(900px, 96vw); padding: 0; overflow: hidden;
+  }
+  .viewer-content { position: relative; }
+  .viewer-media { width: 100%; max-height: 70vh; background: #000; display: block; }
+  .viewer-info { padding: 20px 24px; }
+  .viewer-info h2 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; margin-bottom: 8px; }
+  .viewer-meta { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+  .viewer-actions { display: flex; gap: 10px; margin-top: 12px; }
+
+  /* ── SETTINGS PAGE ── */
+  .settings-section {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+  }
+  .settings-section h3 {
+    font-family: 'Space Grotesk', sans-serif; font-size: 16px;
+    margin-bottom: 16px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    aside { display: none; }
+    main { padding: 16px; }
+    .video-grid { grid-template-columns: 1fr; }
+    .profile-header { flex-direction: column; }
+    .search-bar { max-width: 200px; }
+  }
+
+  /* ── LOADING SKELETON ── */
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 4px;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .sk-card { border-radius: var(--radius); overflow: hidden; }
+  .sk-thumb { width: 100%; aspect-ratio: 16/9; }
+  .sk-line { height: 14px; margin: 10px 14px 6px; }
+  .sk-line-sm { height: 11px; margin: 0 14px 14px; width: 60%; }
+</style>
+</head>
+<body>
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+
+<!-- ── AUTH MODAL ── -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('authModal')">✕</button>
+
+    <!-- SIGN IN -->
+    <div id="signinForm">
+      <h2>Welcome back</h2>
+      <p class="subtitle">Sign in to your CXVid account</p>
+      <div class="form-group">
+        <label>Username or email</label>
+        <input type="text" id="signinUsername" placeholder="your@email.com" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="signinPassword" placeholder="••••••••" />
+      </div>
+      <button class="btn btn-primary" onclick="signIn()">Sign in</button>
+      <div class="modal-switch">
+        Don't have an account? <a onclick="switchToRegister()">Create one</a>
+      </div>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="registerForm" style="display:none">
+      <h2>Create account</h2>
+      <p class="subtitle">Join CXVid today — it's free</p>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="regUsername" placeholder="coolcreator" />
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="regEmail" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="regPassword" placeholder="Min 6 characters" />
+      </div>
+      <button class="btn btn-primary" onclick="register()">Create account</button>
+      <div class="modal-switch">
+        Already have an account? <a onclick="switchToSignin()">Sign in</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── UPLOAD MODAL ── -->
+<div class="modal-overlay" id="uploadModal">
+  <div class="modal" style="width:min(560px,95vw)">
+    <button class="modal-close" onclick="closeModal('uploadModal')">✕</button>
+    <h2>Upload media</h2>
+    <p class="subtitle">Share a video or image with the world</p>
+
+    <!-- GitHub Config -->
+    <details class="gh-panel" id="ghPanel">
+      <summary>⚙️ GitHub Storage Config</summary>
+      <div class="gh-fields">
+        <div class="form-group" style="margin:0">
+          <label>Personal Access Token</label>
+          <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Repository (owner/repo)</label>
+          <input type="text" id="ghRepo" placeholder="yourusername/cxvid-storage" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Branch</label>
+          <input type="text" id="ghBranch" placeholder="main" value="main" />
+        </div>
+        <button class="btn btn-ghost" style="width:100%; margin-top:4px" onclick="saveGHConfig()">Save config</button>
+      </div>
+    </details>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept="video/*,image/*" onchange="handleFileSelect(this)" />
+      <div class="dz-icon">📁</div>
+      <p><strong>Click to browse</strong> or drag & drop</p>
+      <p style="margin-top:4px; font-size:12px">Videos: MP4, MOV, AVI, WebM — Images: JPG, PNG, GIF, WebP</p>
+      <div class="preview" id="filePreview" style="display:none"></div>
+    </div>
+
+    <div class="form-group" style="margin-top:16px">
+      <label>Title</label>
+      <input type="text" id="uploadTitle" placeholder="Give your content a title…" />
+    </div>
+    <div class="form-group">
+      <label>Description (optional)</label>
+      <textarea id="uploadDesc" rows="3" placeholder="What's this about?" style="resize:vertical"></textarea>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="progress-label" id="progressLabel"></div>
+
+    <button class="btn btn-primary" style="margin-top:16px" onclick="uploadMedia()" id="uploadBtn">
+      Upload to GitHub
+    </button>
+  </div>
+</div>
+
+<!-- ── MEDIA VIEWER MODAL ── -->
+<div class="modal-overlay viewer-modal" id="viewerModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('viewerModal')" style="top:12px; right:12px; z-index:2">✕</button>
+    <div class="viewer-content" id="viewerContent"></div>
+    <div class="viewer-info" id="viewerInfo"></div>
+  </div>
+</div>
+
+<!-- ── HEADER ── -->
+<header>
+  <a class="logo" href="#" onclick="navigate('home')">
+    <span class="cx">CX</span>Vid
+  </a>
+
+  <div class="search-bar">
+    <span class="icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    </span>
+    <input type="text" id="searchInput" placeholder="Search videos, images…" oninput="handleSearch()" />
+  </div>
+
+  <div class="header-right">
+    <button class="upload-btn hidden" id="uploadBtn2" onclick="openModal('uploadModal')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Upload
+    </button>
+
+    <div class="auth-btns" id="authBtns">
+      <button class="btn btn-ghost" onclick="openModal('authModal'); switchToSignin()">Sign in</button>
+      <button class="btn btn-primary" style="padding:8px 16px; font-size:13px; width:auto" onclick="openModal('authModal'); switchToRegister()">Join free</button>
+    </div>
+
+    <button class="avatar-btn" id="avatarBtn" onclick="navigate('profile')" title="Profile"></button>
+  </div>
+</header>
+
+<!-- ── APP BODY ── -->
+<div class="app-body">
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="nav-section">
+      <div class="nav-item active" id="nav-home" onclick="navigate('home')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Home
+      </div>
+      <div class="nav-item" id="nav-trending" onclick="navigate('trending')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        Trending
+      </div>
+      <div class="nav-item" id="nav-images" onclick="navigate('images')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Images
+      </div>
+      <div class="nav-item" id="nav-videos" onclick="navigate('videos')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Videos
+      </div>
+    </div>
+
+    <div class="nav-section" id="userNavSection" style="display:none">
+      <div class="nav-label">You</div>
+      <div class="nav-item" id="nav-profile" onclick="navigate('profile')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        My Profile
+      </div>
+      <div class="nav-item" id="nav-settings" onclick="navigate('settings')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main>
+
+    <!-- HOME PAGE -->
+    <div class="page active" id="page-home">
+      <div class="feed-header">
+        <h1>Feed</h1>
+        <div class="filter-chips">
+          <div class="chip active" onclick="filterFeed('all', this)">All</div>
+          <div class="chip" onclick="filterFeed('video', this)">Videos</div>
+          <div class="chip" onclick="filterFeed('image', this)">Images</div>
+        </div>
+      </div>
+      <div class="video-grid" id="feedGrid"></div>
+    </div>
+
+    <!-- TRENDING PAGE -->
+    <div class="page" id="page-trending">
+      <div class="feed-header">
+        <h1>🔥 Trending</h1>
+      </div>
+      <div class="video-grid" id="trendingGrid"></div>
+    </div>
+
+    <!-- IMAGES PAGE -->
+    <div class="page" id="page-images">
+      <div class="feed-header">
+        <h1>🖼 Images</h1>
+      </div>
+      <div class="video-grid" id="imagesGrid"></div>
+    </div>
+
+    <!-- VIDEOS PAGE -->
+    <div class="page" id="page-videos">
+      <div class="feed-header">
+        <h1>🎬 Videos</h1>
+      </div>
+      <div class="video-grid" id="videosGrid"></div>
+    </div>
+
+    <!-- PROFILE PAGE -->
+    <div class="page" id="page-profile">
+      <div class="profile-header" id="profileHeader"></div>
+      <h3 style="font-family:'Space Grotesk',sans-serif; margin-bottom:16px">My Uploads</h3>
+      <div class="video-grid" id="profileGrid"></div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div class="page" id="page-settings">
+      <h1 style="font-family:'Space Grotesk',sans-serif; font-size:22px; margin-bottom:24px">Settings</h1>
+      <div class="settings-section">
+        <h3>GitHub Storage</h3>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:16px">
+          CXVid uses your GitHub repo to store uploaded media files. Files are pushed via the GitHub Contents API.
+        </p>
+        <div class="form-group">
+          <label>Personal Access Token</label>
+          <input type="password" id="settingsToken" placeholder="ghp_xxxxxxxxxxxx" />
+        </div>
+        <div class="form-group">
+          <label>Repository (owner/repo)</label>
+          <input type="text" id="settingsRepo" placeholder="yourusername/cxvid-storage" />
+        </div>
+        <div class="form-group">
+          <label>Branch</label>
+          <input type="text" id="settingsBranch" placeholder="main" />
+        </div>
+        <button class="btn btn-primary" style="width:auto; padding:12px 28px" onclick="saveSettingsGH()">Save</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>Account</h3>
+        <div id="accountInfo" style="color:var(--muted); font-size:14px; margin-bottom:16px"></div>
+        <button class="btn btn-danger" style="width:auto; padding:10px 24px" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────
+let currentUser = null;
+let posts = [];          // all posts (stored in localStorage)
+let selectedFile = null;
+let currentFilter = 'all';
+let currentPage = 'home';
+let ghConfig = { token: '', repo: '', branch: 'main' };
+
+// ── INIT ──────────────────────────────────────────────────
+(function init() {
+  const saved = localStorage.getItem('cxvid_user');
+  if (saved) {
+    currentUser = JSON.parse(saved);
+    onLogin();
+  }
+  posts = JSON.parse(localStorage.getItem('cxvid_posts') || '[]');
+  ghConfig = JSON.parse(localStorage.getItem('cxvid_gh') || '{"token":"","repo":"","branch":"main"}');
+  syncGHInputs();
+  renderGrid('feedGrid', posts);
+  renderTrending();
+  renderTyped('imagesGrid', 'image');
+  renderTyped('videosGrid', 'video');
+})();
+
+// ── TOAST ──────────────────────────────────────────────────
+function toast(msg, type = 'info', dur = 3500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.className = ''; }, dur);
+}
+
+// ── MODAL ──────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// ── AUTH FORMS ──────────────────────────────────────────────
+function switchToRegister() {
+  document.getElementById('signinForm').style.display = 'none';
+  document.getElementById('registerForm').style.display = 'block';
+}
+function switchToSignin() {
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('signinForm').style.display = 'block';
+}
+
+function register() {
+  const username = document.getElementById('regUsername').value.trim();
+  const email    = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+
+  if (!username || !email || !password) return toast('Fill in all fields', 'error');
+  if (password.length < 6) return toast('Password must be at least 6 characters', 'error');
+
+  const users = JSON.parse(localStorage.getItem('cxvid_users') || '[]');
+  if (users.find(u => u.username === username)) return toast('Username taken', 'error');
+  if (users.find(u => u.email === email)) return toast('Email already registered', 'error');
+
+  const user = { id: Date.now(), username, email, password, joinedAt: new Date().toISOString() };
+  users.push(user);
+  localStorage.setItem('cxvid_users', JSON.stringify(users));
+  currentUser = user;
+  localStorage.setItem('cxvid_user', JSON.stringify(user));
+  onLogin();
+  closeModal('authModal');
+  toast(`Welcome to CXVid, ${username}! 🎉`, 'success');
+}
+
+function signIn() {
+  const id  = document.getElementById('signinUsername').value.trim();
+  const pwd = document.getElementById('signinPassword').value;
+  if (!id || !pwd) return toast('Fill in all fields', 'error');
+
+  const users = JSON.parse(localStorage.getItem('cxvid_users') || '[]');
+  const user = users.find(u => (u.username === id || u.email === id) && u.password === pwd);
+  if (!user) return toast('Invalid credentials', 'error');
+
+  currentUser = user;
+  localStorage.setItem('cxvid_user', JSON.stringify(user));
+  onLogin();
+  closeModal('authModal');
+  toast(`Welcome back, ${user.username}!`, 'success');
+}
+
+function onLogin() {
+  document.getElementById('authBtns').style.display = 'none';
+  document.getElementById('uploadBtn2').classList.remove('hidden');
+  document.getElementById('avatarBtn').classList.add('visible');
+  document.getElementById('avatarBtn').textContent = currentUser.username[0].toUpperCase();
+  document.getElementById('userNavSection').style.display = 'block';
+
+  // Profile page
+  document.getElementById('profileHeader').innerHTML = `
+    <div class="profile-avatar">${currentUser.username[0].toUpperCase()}</div>
+    <div class="profile-info">
+      <h2>${currentUser.username}</h2>
+      <p>${currentUser.email}</p>
+      <p style="margin-top:4px; font-size:12px">Joined ${new Date(currentUser.joinedAt).toLocaleDateString()}</p>
+      <div class="profile-stats">
+        <div class="stat"><div class="num" id="statUploads">0</div><div class="lbl">Uploads</div></div>
+        <div class="stat"><div class="num">0</div><div class="lbl">Views</div></div>
+      </div>
+    </div>`;
+
+  document.getElementById('accountInfo').innerHTML = `
+    Signed in as <strong>${currentUser.username}</strong> (${currentUser.email})`;
+
+  renderProfileGrid();
+}
+
+function signOut() {
+  currentUser = null;
+  localStorage.removeItem('cxvid_user');
+  document.getElementById('authBtns').style.display = 'flex';
+  document.getElementById('uploadBtn2').classList.add('hidden');
+  document.getElementById('avatarBtn').classList.remove('visible');
+  document.getElementById('userNavSection').style.display = 'none';
+  navigate('home');
+  toast('Signed out', 'info');
+}
+
+// ── NAVIGATION ──────────────────────────────────────────────
+function navigate(page) {
+  if (page === 'profile' && !currentUser) {
+    openModal('authModal'); return;
+  }
+  if (page === 'settings' && !currentUser) {
+    openModal('authModal'); return;
+  }
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const pageEl = document.getElementById(`page-${page}`);
+  if (pageEl) pageEl.classList.add('active');
+
+  const navEl = document.getElementById(`nav-${page}`);
+  if (navEl) navEl.classList.add('active');
+
+  currentPage = page;
+
+  if (page === 'settings') {
+    syncGHInputs('settings');
+  }
+  if (page === 'profile') renderProfileGrid();
+}
+
+// ── GITHUB CONFIG ──────────────────────────────────────────
+function saveGHConfig() {
+  ghConfig.token  = document.getElementById('ghToken').value.trim();
+  ghConfig.repo   = document.getElementById('ghRepo').value.trim();
+  ghConfig.branch = document.getElementById('ghBranch').value.trim() || 'main';
+  localStorage.setItem('cxvid_gh', JSON.stringify(ghConfig));
+  toast('GitHub config saved ✓', 'success');
+}
+
+function saveSettingsGH() {
+  ghConfig.token  = document.getElementById('settingsToken').value.trim();
+  ghConfig.repo   = document.getElementById('settingsRepo').value.trim();
+  ghConfig.branch = document.getElementById('settingsBranch').value.trim() || 'main';
+  localStorage.setItem('cxvid_gh', JSON.stringify(ghConfig));
+  syncGHInputs('upload');
+  toast('GitHub config saved ✓', 'success');
+}
+
+function syncGHInputs(target) {
+  if (!target || target === 'upload') {
+    if (document.getElementById('ghToken'))  document.getElementById('ghToken').value  = ghConfig.token;
+    if (document.getElementById('ghRepo'))   document.getElementById('ghRepo').value   = ghConfig.repo;
+    if (document.getElementById('ghBranch')) document.getElementById('ghBranch').value = ghConfig.branch;
+  }
+  if (!target || target === 'settings') {
+    if (document.getElementById('settingsToken'))  document.getElementById('settingsToken').value  = ghConfig.token;
+    if (document.getElementById('settingsRepo'))   document.getElementById('settingsRepo').value   = ghConfig.repo;
+    if (document.getElementById('settingsBranch')) document.getElementById('settingsBranch').value = ghConfig.branch;
+  }
+}
+
+// ── FILE SELECT ──────────────────────────────────────────────
+function handleFileSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  selectedFile = file;
+  const prev = document.getElementById('filePreview');
+  const isVid = file.type.startsWith('video/');
+  const url = URL.createObjectURL(file);
+  prev.innerHTML = isVid
+    ? `<video class="preview-thumb" src="${url}" muted></video>`
+    : `<img class="preview-thumb" src="${url}" alt="preview" />`;
+  prev.innerHTML += `<span style="color:var(--muted)">${file.name} (${(file.size/1024/1024).toFixed(2)} MB)</span>`;
+  prev.style.display = 'flex';
+  if (!document.getElementById('uploadTitle').value) {
+    document.getElementById('uploadTitle').value = file.name.replace(/\.[^.]+$/, '');
+  }
+}
+
+// Drop zone
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    selectedFile = file;
+    const input = document.getElementById('fileInput');
+    const dt = new DataTransfer(); dt.items.add(file);
+    input.files = dt.files;
+    handleFileSelect(input);
+  }
+});
+
+// ── UPLOAD ──────────────────────────────────────────────────
+async function uploadMedia() {
+  if (!currentUser) { openModal('authModal'); return; }
+  if (!selectedFile) return toast('Select a file first', 'error');
+
+  const title = document.getElementById('uploadTitle').value.trim();
+  if (!title) return toast('Add a title', 'error');
+  const desc = document.getElementById('uploadDesc').value.trim();
+
+  // Read from upload-modal inputs (or fallback to saved)
+  const token  = document.getElementById('ghToken').value.trim()  || ghConfig.token;
+  const repo   = document.getElementById('ghRepo').value.trim()   || ghConfig.repo;
+  const branch = document.getElementById('ghBranch').value.trim() || ghConfig.branch || 'main';
+
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+
+  const progressWrap  = document.getElementById('progressWrap');
+  const progressBar   = document.getElementById('progressBar');
+  const progressLabel = document.getElementById('progressLabel');
+
+  // If no GitHub config, store locally only
+  if (!token || !repo) {
+    progressWrap.style.display = 'block';
+    progressLabel.style.display = 'block';
+
+    const reader = new FileReader();
+    reader.onprogress = e => {
+      if (e.lengthComputable) {
+        const pct = Math.round(e.loaded / e.total * 80);
+        progressBar.style.width = pct + '%';
+        progressLabel.textContent = `Reading file… ${pct}%`;
+      }
+    };
+    reader.onload = () => {
+      progressBar.style.width = '90%';
+      progressLabel.textContent = 'Saving locally…';
+      const dataURL = reader.result;
+      savePost({ title, desc, url: dataURL, type: selectedFile.type.startsWith('video/') ? 'video' : 'image', filename: selectedFile.name });
+      progressBar.style.width = '100%';
+      progressLabel.textContent = 'Done!';
+      setTimeout(() => finishUpload(), 500);
+    };
+    reader.readAsDataURL(selectedFile);
+    return;
+  }
+
+  // GitHub upload
+  try {
+    progressWrap.style.display = 'block';
+    progressLabel.style.display = 'block';
+    progressLabel.textContent = 'Reading file…';
+
+    const base64 = await readFileAsBase64(selectedFile);
+    progressBar.style.width = '40%';
+    progressLabel.textContent = 'Uploading to GitHub…';
+
+    const ext = selectedFile.name.split('.').pop();
+    const safeName = `${Date.now()}-${title.replace(/[^a-zA-Z0-9]/g, '_')}.${ext}`;
+    const path = `media/${safeName}`;
+
+    const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      },
+      body: JSON.stringify({
+        message: `CXVid upload: ${title}`,
+        content: base64,
+        branch: branch
+      })
+    });
+
+    progressBar.style.width = '80%';
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || `GitHub API error ${res.status}`);
+    }
+
+    const data = await res.json();
+    const rawUrl = data.content.download_url;
+
+    progressBar.style.width = '100%';
+    progressLabel.textContent = 'Upload complete!';
+
+    savePost({ title, desc, url: rawUrl, type: selectedFile.type.startsWith('video/') ? 'video' : 'image', filename: safeName, ghPath: path, repo });
+
+    setTimeout(() => finishUpload(), 500);
+
+  } catch (err) {
+    console.error(err);
+    toast('GitHub error: ' + err.message, 'error', 6000);
+    btn.disabled = false; btn.textContent = 'Upload to GitHub';
+    progressBar.style.width = '0%';
+    progressLabel.textContent = '';
+  }
+}
+
+function readFileAsBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('File read failed'));
+    r.readAsDataURL(file);
+  });
+}
+
+function savePost(post) {
+  const p = {
+    id: Date.now(),
+    ...post,
+    author: currentUser.username,
+    authorId: currentUser.id,
+    createdAt: new Date().toISOString(),
+    views: 0,
+    likes: 0
+  };
+  posts.unshift(p);
+  localStorage.setItem('cxvid_posts', JSON.stringify(posts));
+}
+
+function finishUpload() {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('filePreview').style.display = 'none';
+  document.getElementById('uploadTitle').value = '';
+  document.getElementById('uploadDesc').value = '';
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('progressLabel').style.display = 'none';
+  document.getElementById('uploadBtn').disabled = false;
+  document.getElementById('uploadBtn').textContent = 'Upload to GitHub';
+  closeModal('uploadModal');
+  toast('Uploaded successfully! 🚀', 'success');
+  renderGrid('feedGrid', getFilteredPosts(currentFilter));
+  renderProfileGrid();
+  renderTrending();
+  renderTyped('imagesGrid', 'image');
+  renderTyped('videosGrid', 'video');
+}
+
+// ── RENDER ──────────────────────────────────────────────────
+function renderGrid(gridId, items) {
+  const grid = document.getElementById(gridId);
+  if (!items || items.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <div class="icon">🎬</div>
+        <h2>Nothing here yet</h2>
+        <p>Upload your first video or image to get started.</p>
+        <button class="btn btn-primary" style="width:auto; padding:12px 28px"
+          onclick="${currentUser ? "openModal('uploadModal')" : "openModal('authModal')"}">
+          ${currentUser ? '+ Upload media' : 'Sign in to upload'}
+        </button>
+      </div>`;
+    return;
+  }
+  grid.innerHTML = items.map(p => cardHTML(p)).join('');
+}
+
+function cardHTML(post) {
+  const isVid = post.type === 'video';
+  const thumb = isVid
+    ? `<video src="${post.url}" muted preload="metadata" class="preview-thumb" style="width:100%;height:100%;object-fit:cover"></video>`
+    : `<img src="${post.url}" alt="${esc(post.title)}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;font-size:40px\\'>🖼️</div>'" />`;
+
+  const playIcon = isVid ? `<div class="play-icon">
+    <svg viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+  </div>` : '';
+
+  return `
+  <div class="video-card" onclick="viewPost('${post.id}')">
+    <div class="thumbnail">
+      ${thumb}
+      ${playIcon}
+      <div class="media-type-badge">${isVid ? '▶ Video' : '🖼 Image'}</div>
+    </div>
+    <div class="card-info">
+      <h3>${esc(post.title)}</h3>
+      <div class="card-meta">
+        <div class="avatar-sm">${post.author[0].toUpperCase()}</div>
+        <span>${esc(post.author)}</span>
+        <span>·</span>
+        <span>${timeAgo(post.createdAt)}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderTrending() {
+  const sorted = [...posts].sort((a, b) => b.views - a.views || new Date(b.createdAt) - new Date(a.createdAt));
+  renderGrid('trendingGrid', sorted);
+}
+
+function renderTyped(gridId, type) {
+  renderGrid(gridId, posts.filter(p => p.type === type));
+}
+
+function renderProfileGrid() {
+  if (!currentUser) return;
+  const mine = posts.filter(p => p.authorId === currentUser.id);
+  renderGrid('profileGrid', mine);
+  const stat = document.getElementById('statUploads');
+  if (stat) stat.textContent = mine.length;
+}
+
+// ── FILTER ──────────────────────────────────────────────────
+function filterFeed(type, el) {
+  currentFilter = type;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid('feedGrid', getFilteredPosts(type));
+}
+
+function getFilteredPosts(type) {
+  if (type === 'all') return posts;
+  return posts.filter(p => p.type === type);
+}
+
+// ── SEARCH ──────────────────────────────────────────────────
+function handleSearch() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  navigate('home');
+  const filtered = q ? posts.filter(p =>
+    p.title.toLowerCase().includes(q) ||
+    (p.desc || '').toLowerCase().includes(q) ||
+    p.author.toLowerCase().includes(q)
+  ) : posts;
+  renderGrid('feedGrid', filtered);
+}
+
+// ── VIEWER ──────────────────────────────────────────────────
+function viewPost(id) {
+  const post = posts.find(p => String(p.id) === String(id));
+  if (!post) return;
+
+  // bump views
+  post.views++;
+  localStorage.setItem('cxvid_posts', JSON.stringify(posts));
+
+  const content = document.getElementById('viewerContent');
+  const info = document.getElementById('viewerInfo');
+  const isVid = post.type === 'video';
+
+  content.innerHTML = isVid
+    ? `<video class="viewer-media" src="${post.url}" controls autoplay></video>`
+    : `<img class="viewer-media" src="${post.url}" alt="${esc(post.title)}" style="object-fit:contain; background:#000" />`;
+
+  const canDelete = currentUser && currentUser.id === post.authorId;
+  info.innerHTML = `
+    <div class="viewer-info">
+      <h2>${esc(post.title)}</h2>
+      <div class="viewer-meta">
+        <div class="avatar-sm">${post.author[0].toUpperCase()}</div>
+        <span>${esc(post.author)}</span>
+        <span>·</span>
+        <span>${timeAgo(post.createdAt)}</span>
+        <span>·</span>
+        <span>${post.views} views</span>
+      </div>
+      ${post.desc ? `<p style="margin-top:10px; color:var(--muted); font-size:13px">${esc(post.desc)}</p>` : ''}
+      <div class="viewer-actions">
+        ${canDelete ? `<button class="btn btn-danger" style="padding:8px 16px; font-size:13px" onclick="deletePost('${post.id}')">Delete</button>` : ''}
+        <a href="${post.url}" target="_blank" class="btn btn-ghost" style="padding:8px 16px; font-size:13px; text-decoration:none">Open original</a>
+      </div>
+    </div>`;
+
+  openModal('viewerModal');
+}
+
+function deletePost(id) {
+  if (!confirm('Delete this post?')) return;
+  posts = posts.filter(p => String(p.id) !== String(id));
+  localStorage.setItem('cxvid_posts', JSON.stringify(posts));
+  closeModal('viewerModal');
+  renderGrid('feedGrid', getFilteredPosts(currentFilter));
+  renderProfileGrid();
+  renderTrending();
+  renderTyped('imagesGrid', 'image');
+  renderTyped('videosGrid', 'video');
+  toast('Post deleted', 'info');
+}
+
+// ── UPLOAD MODAL OPEN ──────────────────────────────────────
+function openModal(id) {
+  document.getElementById(id).classList.add('active');
+  if (id === 'uploadModal') syncGHInputs('upload');
+}
+
+// ── UTILS ──────────────────────────────────────────────────
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function timeAgo(iso) {
+  const diff = (Date.now() - new Date(iso)) / 1000;
+  if (diff < 60)    return 'just now';
+  if (diff < 3600)  return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
+// Close modals on backdrop click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+});
+
+// Keyboard close
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+  }
+});
+</script>
+</body>
+</html>
